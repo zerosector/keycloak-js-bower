@@ -1,0 +1,16 @@
+{
+  "name": "keycloak",
+  "version": "0.3.2",
+  "main": "dist/keycloak.js",
+  "ignore": [
+    "**/.*",
+    "keycloak/"
+  ],
+  "description": "A bower project for the keycloak javascript adapter.",
+  "keywords": [
+    "keycloak",
+    "sso",
+    "oauth",
+    "java"
+  ]
+}
