@@ -1,3 +1,0 @@
-[submodule "keycloak"]
-	path = keycloak
-	url = https://github.com/keycloak/keycloak
