@@ -12,8 +12,5 @@
     "oauth",
     "oauth2",
     "authentication"
-  ],
-  "dependencies": {
-    "keycloak": "~0.3.2"
-  }
+  ]
 }
