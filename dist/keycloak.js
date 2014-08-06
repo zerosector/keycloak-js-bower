@@ -57,6 +57,17 @@
                     processCallback(callback, initPromise);
                     return;
                 } else if (initOptions) {
+                    var doLogin = function(prompt) {
+                        if (!prompt) {
+                            options.prompt = 'none';
+                        }
+                        kc.login(options).success(function () {
+                            initPromise.setSuccess();
+                        }).error(function () {
+                            initPromise.setError();
+                        });
+                    }
+
                     if (initOptions.token || initOptions.refreshToken) {
                         setToken(initOptions.token, initOptions.refreshToken);
                         initPromise.setSuccess();
@@ -64,16 +75,20 @@
                         var options = {};
                         switch (initOptions.onLoad) {
                             case 'check-sso':
-                                options.prompt = 'none';
-                            case 'login-required':
-                                var p = kc.login(options);
-                                if (p) {
-                                    p.success(function() {
-                                        initPromise.setSuccess();
-                                    }).error(function() {
-                                        initPromise.setError();
+                                if (loginIframe.enable) {
+                                    setupCheckLoginIframe().success(function() {
+                                        checkLoginIframe().success(function () {
+                                            doLogin(false);
+                                        }).error(function () {
+                                            initPromise.setSuccess();
+                                        });
                                     });
-                                };
+                                } else {
+                                    doLogin(false);
+                                }
+                                break;
+                            case 'login-required':
+                                doLogin(true);
                                 break;
                             default:
                                 throw 'Invalid value for onLoad';
@@ -119,6 +134,10 @@
 
             if (options && options.prompt) {
                 url += '&prompt=' + options.prompt;
+            }
+
+            if (options && options.loginHint) {
+                url += '&login_hint=' + options.loginHint;
             }
 
             return url;
@@ -262,6 +281,14 @@
 
         function getRealmUrl() {
             return kc.authServerUrl + '/realms/' + encodeURIComponent(kc.realm);
+        }
+
+        function getOrigin() {
+            if (!window.location.origin) {
+                return window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port: '');
+            } else {
+                return window.location.origin;
+            }
         }
 
         function processCallback(oauth, promise) {
@@ -525,7 +552,14 @@
         }
 
         function setupCheckLoginIframe() {
-            if (!loginIframe.enable || loginIframe.iframe) {
+            var promise = createPromise();
+
+            if (!loginIframe.enable) {
+                return;
+            }
+
+            if (loginIframe.iframe) {
+                promise.setSuccess();
                 return;
             }
 
@@ -534,14 +568,15 @@
             iframe.onload = function() {
                 var realmUrl = getRealmUrl();
                 if (realmUrl.charAt(0) === '/') {
-                    loginIframe.iframeOrigin = window.location.origin;
+                    loginIframe.iframeOrigin = getOrigin();
                 } else {
                     loginIframe.iframeOrigin = realmUrl.substring(0, realmUrl.indexOf('/', 8));
                 }
                 loginIframe.iframe = iframe;
+                promise.setSuccess();
             }
 
-            var src = getRealmUrl() + '/login-status-iframe.html?client_id=' + encodeURIComponent(kc.clientId) + '&origin=' + window.location.origin;
+            var src = getRealmUrl() + '/login-status-iframe.html?client_id=' + encodeURIComponent(kc.clientId) + '&origin=' + getOrigin();
             iframe.setAttribute('src', src );
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
@@ -553,7 +588,8 @@
                 var data = event.data;
                 var promise = loginIframe.callbackMap[data.callbackId];
                 delete loginIframe.callbackMap[data.callbackId];
-                if (kc.sessionId == data.session && data.loggedIn) {
+
+                if ((!kc.sessionId || kc.sessionId == data.session) && data.loggedIn) {
                     promise.setSuccess();
                 } else {
                     clearToken();
@@ -570,12 +606,14 @@
             };
 
             setTimeout(check, loginIframe.interval * 1000);
+
+            return promise.promise;
         }
 
         function checkLoginIframe() {
             var promise = createPromise();
 
-            if (loginIframe.iframe || loginIframe.iframeOrigin) {
+            if (loginIframe.iframe && loginIframe.iframeOrigin) {
                 var msg = {};
                 msg.callbackId = createCallbackId();
                 loginIframe.callbackMap[msg.callbackId] = promise;
@@ -593,14 +631,17 @@
                 return {
                     login: function(options) {
                         window.location.href = kc.createLoginUrl(options);
+                        return createPromise().promise;
                     },
 
                     logout: function(options) {
                         window.location.href = kc.createLogoutUrl(options);
+                        return createPromise().promise;
                     },
 
                     accountManagement : function() {
                         window.location.href = kc.createAccountUrl();
+                        return createPromise().promise;
                     },
 
                     redirectUri: function(options) {
