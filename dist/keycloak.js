@@ -50,50 +50,68 @@
 
             var configPromise = loadConfig(config);
 
+            function onLoad() {
+                var doLogin = function(prompt) {
+                    if (!prompt) {
+                        options.prompt = 'none';
+                    }
+                    kc.login(options).success(function () {
+                        initPromise.setSuccess();
+                    }).error(function () {
+                        initPromise.setError();
+                    });
+                }
+
+                var options = {};
+                switch (initOptions.onLoad) {
+                    case 'check-sso':
+                        if (loginIframe.enable) {
+                            setupCheckLoginIframe().success(function() {
+                                checkLoginIframe().success(function () {
+                                    doLogin(false);
+                                }).error(function () {
+                                    initPromise.setSuccess();
+                                });
+                            });
+                        } else {
+                            doLogin(false);
+                        }
+                        break;
+                    case 'login-required':
+                        doLogin(true);
+                        break;
+                    default:
+                        throw 'Invalid value for onLoad';
+                }
+            }
+
             function processInit() {
                 var callback = parseCallback(window.location.href);
 
                 if (callback) {
+                    setupCheckLoginIframe();
                     window.history.replaceState({}, null, callback.newUrl);
                     processCallback(callback, initPromise);
                     return;
                 } else if (initOptions) {
-                    var doLogin = function(prompt) {
-                        if (!prompt) {
-                            options.prompt = 'none';
-                        }
-                        kc.login(options).success(function () {
-                            initPromise.setSuccess();
-                        }).error(function () {
-                            initPromise.setError();
-                        });
-                    }
-
                     if (initOptions.token || initOptions.refreshToken) {
                         setToken(initOptions.token, initOptions.refreshToken, initOptions.idToken);
-                        initPromise.setSuccess();
-                    } else if (initOptions.onLoad) {
-                        var options = {};
-                        switch (initOptions.onLoad) {
-                            case 'check-sso':
-                                if (loginIframe.enable) {
-                                    setupCheckLoginIframe().success(function() {
-                                        checkLoginIframe().success(function () {
-                                            doLogin(false);
-                                        }).error(function () {
-                                            initPromise.setSuccess();
-                                        });
-                                    });
-                                } else {
-                                    doLogin(false);
-                                }
-                                break;
-                            case 'login-required':
-                                doLogin(true);
-                                break;
-                            default:
-                                throw 'Invalid value for onLoad';
+
+                        if (loginIframe.enable) {
+                            setupCheckLoginIframe().success(function() {
+                                checkLoginIframe().success(function () {
+                                    initPromise.setSuccess();
+                                }).error(function () {
+                                    if (initOptions.onLoad) {
+                                        onLoad();
+                                    }
+                                });
+                            });
+                        } else {
+                            initPromise.setSuccess();
                         }
+                    } else if (initOptions.onLoad) {
+                        onLoad();
                     }
                 } else {
                     initPromise.setSuccess();
@@ -122,8 +140,13 @@
 
             sessionStorage.oauthState = JSON.stringify({ state: state, redirectUri: encodeURIComponent(redirectUri) });
 
+            var action = 'auth';
+            if (options && options.action == 'register') {
+                action = 'registrations';
+            }
+
             var url = getRealmUrl()
-                + '/tokens/login'
+                + '/protocol/openid-connect/' + action
                 + '?client_id=' + encodeURIComponent(kc.clientId)
                 + '&redirect_uri=' + encodeURIComponent(redirectUri)
                 + '&state=' + encodeURIComponent(state)
@@ -137,6 +160,10 @@
                 url += '&login_hint=' + options.loginHint;
             }
 
+            if (options && options.idpHint) {
+                url += '&kc_idp_hint=' + options.idpHint;
+            }
+
             return url;
         }
 
@@ -146,7 +173,7 @@
 
         kc.createLogoutUrl = function(options) {
             var url = getRealmUrl()
-                + '/tokens/logout'
+                + '/protocol/openid-connect/logout'
                 + '?redirect_uri=' + encodeURIComponent(adapter.redirectUri(options));
 
             return url;
@@ -204,6 +231,31 @@
             return promise.promise;
         }
 
+        kc.loadUserInfo = function() {
+            var url = getRealmUrl() + '/protocol/openid-connect/userinfo';
+            var req = new XMLHttpRequest();
+            req.open('GET', url, true);
+            req.setRequestHeader('Accept', 'application/json');
+            req.setRequestHeader('Authorization', 'bearer ' + kc.token);
+
+            var promise = createPromise();
+
+            req.onreadystatechange = function () {
+                if (req.readyState == 4) {
+                    if (req.status == 200) {
+                        kc.userInfo = JSON.parse(req.responseText);
+                        promise.setSuccess(kc.userInfo);
+                    } else {
+                        promise.setError();
+                    }
+                }
+            }
+
+            req.send();
+
+            return promise.promise;
+        }
+
         kc.isTokenExpired = function(minValidity) {
             if (!kc.tokenParsed || !kc.refreshToken) {
                 throw 'Not authenticated';
@@ -232,7 +284,7 @@
                     promise.setSuccess(false);
                 } else {
                     var params = 'grant_type=refresh_token&' + 'refresh_token=' + kc.refreshToken;
-                    var url = getRealmUrl() + '/tokens/refresh';
+                    var url = getRealmUrl() + '/protocol/openid-connect/token';
 
                     refreshQueue.push(promise);
 
@@ -285,7 +337,11 @@
         }
 
         function getRealmUrl() {
-            return kc.authServerUrl + '/realms/' + encodeURIComponent(kc.realm);
+            if (kc.authServerUrl.charAt(kc.authServerUrl.length - 1) == '/') {
+                return kc.authServerUrl + 'realms/' + encodeURIComponent(kc.realm);
+            } else {
+                return kc.authServerUrl + '/realms/' + encodeURIComponent(kc.realm);
+            }
         }
 
         function getOrigin() {
@@ -302,8 +358,8 @@
             var prompt = oauth.prompt;
 
             if (code) {
-                var params = 'code=' + code;
-                var url = getRealmUrl() + '/tokens/access/codes';
+                var params = 'code=' + code + '&grant_type=authorization_code';
+                var url = getRealmUrl() + '/protocol/openid-connect/token';
 
                 var req = new XMLHttpRequest();
                 req.open('POST', url, true);
@@ -418,10 +474,6 @@
         }
 
         function setToken(token, refreshToken, idToken) {
-            if (token || refreshToken) {
-                setupCheckLoginIframe();
-            }
-
             if (token) {
                 kc.token = token;
                 kc.tokenParsed = decodeToken(token);
@@ -515,7 +567,12 @@
                 var oauth = {};
 
                 oauth.newUrl = url.split('?')[0];
-                var params = url.split('?')[1].split('&');
+                var paramString = url.split('?')[1];
+                var fragIndex = paramString.indexOf('#');
+                if (fragIndex != -1) {
+                    paramString = paramString.substring(0, fragIndex);
+                }
+                var params = paramString.split('&');
                 for (var i = 0; i < params.length; i++) {
                     var p = params[i].split('=');
                     switch (decodeURIComponent(p[0])) {
@@ -600,15 +657,17 @@
             var promise = createPromise();
 
             if (!loginIframe.enable) {
-                return;
+                promise.setSuccess();
+                return promise.promise;
             }
 
             if (loginIframe.iframe) {
                 promise.setSuccess();
-                return;
+                return promise.promise;
             }
 
             var iframe = document.createElement('iframe');
+            loginIframe.iframe = iframe;
 
             iframe.onload = function() {
                 var realmUrl = getRealmUrl();
@@ -617,8 +676,9 @@
                 } else {
                     loginIframe.iframeOrigin = realmUrl.substring(0, realmUrl.indexOf('/', 8));
                 }
-                loginIframe.iframe = iframe;
                 promise.setSuccess();
+
+                setTimeout(check, loginIframe.interval * 1000);
             }
 
             var src = getRealmUrl() + '/protocol/openid-connect/login-status-iframe.html?client_id=' + encodeURIComponent(kc.clientId) + '&origin=' + getOrigin();
@@ -649,8 +709,6 @@
                     setTimeout(check, loginIframe.interval * 1000);
                 }
             };
-
-            setTimeout(check, loginIframe.interval * 1000);
 
             return promise.promise;
         }
