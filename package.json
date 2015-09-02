@@ -1,5 +1,5 @@
 {
-  "name": "keycloak-js-bower",
+  "name": "keycloak-js",
   "version": "1.4.0",
   "description": "Keycloak Adapter",
   "main": "dist/keycloak.js",
