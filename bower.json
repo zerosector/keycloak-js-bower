@@ -12,5 +12,6 @@
     "oauth",
     "oauth2",
     "authentication"
-  ]
+  ],
+  "license": "Apache-2.0"
 }
