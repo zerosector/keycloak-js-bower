@@ -1,7 +1,7 @@
 keycloak-adapter-bower
 ======================
 
-A [Bower](http://bower.io) project for the [Keycloak](http://keycloak.jboss.org/) [javascript adapter](http://keycloak.github.io/docs/userguide/keycloak-server/html/ch08.html#javascript-adapter).
+A [Bower](http://bower.io) project for the [Keycloak](http://www.keycloak.org/) [javascript adapter](https://keycloak.gitbooks.io/securing-client-applications-guide/content/topics/oidc/javascript-adapter.html).
 
 # Usage
 
