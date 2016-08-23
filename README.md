@@ -6,3 +6,7 @@ A [Bower](http://bower.io) project for the [Keycloak](http://www.keycloak.org/) 
 # Usage
 
         $ bower install --save keycloak
+
+# PR
+	this is just a copy to enable bower install, for PR please use:
+	https://github.com/keycloak/keycloak/blob/master/adapters/oidc/js/src/main/resources/keycloak.js.
