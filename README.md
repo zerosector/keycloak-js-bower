@@ -1,11 +1,7 @@
-keycloak-adapter-bower
-======================
+Keycloak JavaScript Adapter
+===========================
 
-A [Bower](http://bower.io) project for the [Keycloak](http://www.keycloak.org/) [javascript adapter](https://keycloak.gitbooks.io/securing-client-applications-guide/content/topics/oidc/javascript-adapter.html).
-
-# Usage
-
-        $ bower install --save keycloak
+JavaScript adapter for [Keycloak](http://www.keycloak.org/). For documentation see our [Securing Clients and Applications Guide](https://keycloak.gitbooks.io/securing-client-applications-guide/content/topics/oidc/javascript-adapter.html).
 
 # Contributions
 
