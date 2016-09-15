@@ -1,6 +1,6 @@
 {
   "name": "keycloak-js",
-  "version": "2.2.0-cr.1",
+  "version": "2.2.0",
   "description": "Keycloak Adapter",
   "main": "dist/keycloak.js",
   "scripts": {
