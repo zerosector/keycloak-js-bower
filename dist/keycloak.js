@@ -210,11 +210,18 @@
             var nonce = createUUID();
 
             var redirectUri = adapter.redirectUri(options);
-            if (options && options.prompt) {
-                redirectUri += (redirectUri.indexOf('?') == -1 ? '?' : '&') + 'prompt=' + options.prompt;
+
+            var callbackState = {
+                state: state,
+                nonce: nonce,
+                redirectUri: encodeURIComponent(redirectUri),
             }
 
-            callbackStorage.add({ state: state, nonce: nonce, redirectUri: encodeURIComponent(redirectUri) });
+            if (options && options.prompt) {
+                callbackState.prompt = options.prompt;
+            }
+
+            callbackStorage.add(callbackState);
 
             var action = 'auth';
             if (options && options.action == 'register') {
@@ -747,6 +754,7 @@
             if (oauthState && (oauth.code || oauth.error || oauth.access_token || oauth.id_token)) {
                 oauth.redirectUri = oauthState.redirectUri;
                 oauth.storedNonce = oauthState.nonce;
+                oauth.prompt = oauthState.prompt;
 
                 if (oauth.fragment) {
                     oauth.newUrl += '#' + oauth.fragment;
@@ -1041,7 +1049,7 @@
 
             function clearExpired() {
                 var time = new Date().getTime();
-                for (var i = 1; i <= localStorage.length; i++)  {
+                for (var i = 0; i < localStorage.length; i++)  {
                     var key = localStorage.key(i);
                     if (key && key.indexOf('kc-callback-') == 0) {
                         var value = localStorage.getItem(key);
@@ -1217,9 +1225,6 @@
                     switch (param) {
                         case 'redirect_fragment':
                             oauth.fragment = queryParams[param];
-                            break;
-                        case 'prompt':
-                            oauth.prompt = queryParams[param];
                             break;
                         default:
                             if (responseMode != 'query' || !handleQueryParam(param, queryParams[param], oauth)) {
