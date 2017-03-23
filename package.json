@@ -3,6 +3,7 @@
   "version": "3.0.0",
   "description": "Keycloak Adapter",
   "main": "dist/keycloak.js",
+  "typings": "dist/keycloak.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
