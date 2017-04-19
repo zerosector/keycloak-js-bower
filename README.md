@@ -1,7 +1,7 @@
 Keycloak JavaScript Adapter
 ===========================
 
-JavaScript adapter for [Keycloak](http://www.keycloak.org/). For documentation see our [Securing Clients and Applications Guide](https://keycloak.gitbooks.io/securing-client-applications-guide/content/topics/oidc/javascript-adapter.html).
+JavaScript adapter for [Keycloak](http://www.keycloak.org/). For documentation see our [Securing Clients and Applications Guide](https://keycloak.gitbooks.io/documentation/securing_apps/topics/oidc/javascript-adapter.html).
 
 ## Issues
 
