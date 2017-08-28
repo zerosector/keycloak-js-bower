@@ -33,6 +33,13 @@
             interval: 5
         };
 
+        var scripts = document.getElementsByTagName('script');
+        for (var i = 0; i < scripts.length; i++) {
+            if ((scripts[i].src.indexOf('keycloak.js') !== -1 || scripts[i].src.indexOf('keycloak.min.js') !== -1) && scripts[i].src.indexOf('version=') !== -1) {
+                kc.iframeVersion = scripts[i].src.substring(scripts[i].src.indexOf('version=') + 8).split('&')[0];
+            }
+        }
+
         kc.init = function (initOptions) {
             kc.authenticated = false;
 
@@ -214,7 +221,7 @@
             var callbackState = {
                 state: state,
                 nonce: nonce,
-                redirectUri: encodeURIComponent(redirectUri),
+                redirectUri: encodeURIComponent(redirectUri)
             }
 
             if (options && options.prompt) {
@@ -831,7 +838,12 @@
             }
 
             var src = getRealmUrl() + '/protocol/openid-connect/login-status-iframe.html';
+            if (kc.iframeVersion) {
+                src = src + '?version=' + kc.iframeVersion;
+            }
+
             iframe.setAttribute('src', src );
+            iframe.setAttribute('title', 'keycloak-session-iframe' );
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
 
