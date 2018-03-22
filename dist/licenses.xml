@@ -3,11 +3,11 @@
     <dependency>
       <groupId>org.keycloak</groupId>
       <artifactId>keycloak-js-adapter</artifactId>
-      <version>3.4.3.Final</version>
+      <version>4.0.0.Beta1</version>
       <licenses>
         <license>
           <name>Apache Software License 2.0</name>
-          <url>https://raw.githubusercontent.com/keycloak/keycloak/3.4.3.Final/License.html</url>
+          <url>https://raw.githubusercontent.com/keycloak/keycloak/4.0.0.Beta1/License.html</url>
         </license>
       </licenses>
     </dependency>
