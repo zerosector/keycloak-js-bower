@@ -1,6 +1,6 @@
 {
   "name": "keycloak-js",
-  "version": "",
+  "version": "4.0.0-beta.3",
   "description": "Keycloak Adapter",
   "main": "dist/keycloak.js",
   "typings": "dist/keycloak.d.ts",
