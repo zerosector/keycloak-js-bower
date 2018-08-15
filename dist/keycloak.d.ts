@@ -29,7 +29,7 @@ export = Keycloak;
 declare function Keycloak(config?: string|{}): Keycloak.KeycloakInstance;
 
 declare namespace Keycloak {
-	type KeycloakAdapterName = 'cordova'|'default' | any;
+	type KeycloakAdapterName = 'cordova' | 'cordova-native' |'default' | any;
 	type KeycloakOnLoad = 'login-required'|'check-sso';
 	type KeycloakResponseMode = 'query'|'fragment';
 	type KeycloakResponseType = 'code'|'id_token token'|'code id_token token';
@@ -99,6 +99,12 @@ declare namespace Keycloak {
 		responseMode?: KeycloakResponseMode;
 
 		/**
+		 * Specifies a default uri to redirect to after login or logout.
+		 * This is currently supported for adapter 'cordova-native' and 'default'
+		 */
+		redirectUri?: string;
+
+		/**
 		 * Set the OpenID Connect flow.
 		 * @default standard
 		 */
@@ -161,6 +167,14 @@ declare namespace Keycloak {
                  * the user's profile to a new preferred locale.
 		 */
 		kcLocale?: string;
+
+		/**
+		 * Specifies arguments that are passed to the Cordova in-app-browser (if applicable).
+		 * Options 'hidden' and 'location' are not affected by these arguments.
+		 * All available options are defined at https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-inappbrowser/.
+		 * Example of use: { zoom: "no", hardwareback: "yes" }
+		 */
+		cordovaOptions?: { [optionName: string]: string };
 	}
 
 	type KeycloakPromiseCallback<T> = (result: T) => void;
