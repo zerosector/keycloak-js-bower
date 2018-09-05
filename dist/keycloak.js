@@ -46,11 +46,10 @@
             kc.authenticated = false;
 
             callbackStorage = createCallbackStorage();
+            var adapters = ['default', 'cordova', 'cordova-native'];
 
-            if (initOptions && initOptions.adapter === 'cordova') {
-                adapter = loadAdapter('cordova');
-            } else if (initOptions && initOptions.adapter === 'default') {
-                adapter = loadAdapter();
+            if (initOptions && adapters.indexOf(initOptions.adapter) > -1) {
+                adapter = loadAdapter(initOptions.adapter);
             } else if (initOptions && typeof initOptions.adapter === "object") {
                 adapter = initOptions.adapter;
             } else {
@@ -105,6 +104,10 @@
 
                 if (initOptions.timeSkew != null) {
                     kc.timeSkew = initOptions.timeSkew;
+                }
+
+                if(initOptions.redirectUri) {
+                    kc.redirectUri = initOptions.redirectUri;
                 }
             }
 
@@ -250,7 +253,16 @@
                 baseUrl = kc.endpoints.authorize();
             }
 
-            var scope = (options && options.scope) ? "openid " + options.scope : "openid";
+            var scope;
+            if (options && options.scope) {
+                if (options.scope.indexOf("openid") != -1) {
+                    scope = options.scope;
+                } else {
+                    scope = "openid " + options.scope;
+                }
+            } else {
+                scope = "openid";
+            }
 
             var url = baseUrl
                 + '?client_id=' + encodeURIComponent(kc.clientId)
@@ -898,7 +910,7 @@
                     supportedParams = ['code', 'state', 'session_state'];
                     break;
                 case 'implicit':
-                    supportedParams = ['access_token', 'id_token', 'state', 'session_state'];
+                    supportedParams = ['access_token', 'token_type', 'id_token', 'state', 'session_state', 'expires_in'];
                     break;
                 case 'hybrid':
                     supportedParams = ['access_token', 'id_token', 'code', 'state', 'session_state'];
@@ -1187,24 +1199,54 @@
                         return window.open(loginUrl, target, options);
                     }
                 };
+
+                var shallowCloneCordovaOptions = function (userOptions) {
+                    if (userOptions && userOptions.cordovaOptions) {
+                        return Object.keys(userOptions.cordovaOptions).reduce(function (options, optionName) {
+                            options[optionName] = userOptions.cordovaOptions[optionName];
+                            return options;
+                        }, {});
+                    } else {
+                        return {};
+                    }
+                };
+
+                var formatCordovaOptions = function (cordovaOptions) {
+                    return Object.keys(cordovaOptions).reduce(function (options, optionName) {
+                        options.push(optionName+"="+cordovaOptions[optionName]);
+                        return options;
+                    }, []).join(",");
+                };
+
+                var createCordovaOptions = function (userOptions) {
+                    var cordovaOptions = shallowCloneCordovaOptions(userOptions);
+                    cordovaOptions.location = 'no';
+                    if (userOptions && userOptions.prompt == 'none') {
+                        cordovaOptions.hidden = 'yes';
+                    }                    
+                    return formatCordovaOptions(cordovaOptions);
+                };
+
                 return {
                     login: function(options) {
                         var promise = createPromise();
 
-                        var o = 'location=no';
-                        if (options && options.prompt == 'none') {
-                            o += ',hidden=yes';
-                        }
-
+                        var cordovaOptions = createCordovaOptions(options);
                         var loginUrl = kc.createLoginUrl(options);
-                        var ref = cordovaOpenWindowWrapper(loginUrl, '_blank', o);
+                        var ref = cordovaOpenWindowWrapper(loginUrl, '_blank', cordovaOptions);
                         var completed = false;
+                        
+                        var closed = false;
+                        var closeBrowser = function() {
+                            closed = true;
+                            ref.close();
+                        };
 
                         ref.addEventListener('loadstart', function(event) {
                             if (event.url.indexOf('http://localhost') == 0) {
                                 var callback = parseCallback(event.url);
                                 processCallback(callback, promise);
-                                ref.close();
+                                closeBrowser();
                                 completed = true;
                             }
                         });
@@ -1214,12 +1256,20 @@
                                 if (event.url.indexOf('http://localhost') == 0) {
                                     var callback = parseCallback(event.url);
                                     processCallback(callback, promise);
-                                    ref.close();
+                                    closeBrowser();
                                     completed = true;
                                 } else {
                                     promise.setError();
-                                    ref.close();
+                                    closeBrowser();
                                 }
+                            }
+                        });
+
+                        ref.addEventListener('exit', function(event) {
+                            if (!closed) {
+                                promise.setError({
+                                    reason: "closed_by_user"
+                                });
                             }
                         });
 
@@ -1228,7 +1278,7 @@
 
                     logout: function(options) {
                         var promise = createPromise();
-
+                        
                         var logoutUrl = kc.createLogoutUrl(options);
                         var ref = cordovaOpenWindowWrapper(logoutUrl, '_blank', 'location=no,hidden=yes');
 
@@ -1263,7 +1313,8 @@
 
                     register : function() {
                         var registerUrl = kc.createRegisterUrl();
-                        var ref = cordovaOpenWindowWrapper(registerUrl, '_blank', 'location=no');
+                        var cordovaOptions = createCordovaOptions(options);
+                        var ref = cordovaOpenWindowWrapper(registerUrl, '_blank', cordovaOptions);
                         ref.addEventListener('loadstart', function(event) {
                             if (event.url.indexOf('http://localhost') == 0) {
                                 ref.close();
@@ -1287,6 +1338,75 @@
 
                     redirectUri: function(options) {
                         return 'http://localhost';
+                    }
+                }
+            }
+
+            if (type == 'cordova-native') {
+                loginIframe.enable = false;
+
+                return {
+                    login: function(options) {
+                        var promise = createPromise();
+                        var loginUrl = kc.createLoginUrl(options);
+
+                        universalLinks.subscribe('keycloak', function(event) {
+                            universalLinks.unsubscribe('keycloak');
+                            window.cordova.plugins.browsertab.close();
+                            var oauth = parseCallback(event.url);
+                            processCallback(oauth, promise);
+                        });
+
+                        window.cordova.plugins.browsertab.openUrl(loginUrl);
+                        return promise.promise;
+                    },
+
+                    logout: function(options) {
+                        var promise = createPromise();
+                        var logoutUrl = kc.createLogoutUrl(options);
+
+                        universalLinks.subscribe('keycloak', function(event) {
+                            universalLinks.unsubscribe('keycloak');
+                            window.cordova.plugins.browsertab.close();
+                            kc.clearToken();
+                            promise.setSuccess();
+                        });
+
+                        window.cordova.plugins.browsertab.openUrl(logoutUrl);
+                        return promise.promise;
+                    },
+
+                    register : function(options) {
+                        var promise = createPromise();
+                        var registerUrl = kc.createRegisterUrl(options);
+                        universalLinks.subscribe('keycloak' , function(event) {
+                            universalLinks.unsubscribe('keycloak');
+                            window.cordova.plugins.browsertab.close();
+                            var oauth = parseCallback(event.url);
+                            processCallback(oauth, promise);
+                        });
+                        window.cordova.plugins.browsertab.openUrl(registerUrl);
+                        return promise.promise;
+
+                    },
+
+                    accountManagement : function() {
+                        var accountUrl = kc.createAccountUrl();
+                        if (typeof accountUrl !== 'undefined') {
+                            window.cordova.plugins.browsertab.openUrl(accountUrl);
+                        } else {
+                            throw "Not supported by the OIDC server";
+                        }
+                    },
+
+                    redirectUri: function(options) {
+                        if (options && options.redirectUri) {
+                            return options.redirectUri;
+                        } else if (kc.redirectUri) {
+                            return kc.redirectUri;
+                        } else {
+                            return "http://localhost";
+                        }
                     }
                 }
             }
