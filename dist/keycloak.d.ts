@@ -29,7 +29,7 @@ export = Keycloak;
 declare function Keycloak(config?: string|{}): Keycloak.KeycloakInstance;
 
 declare namespace Keycloak {
-	type KeycloakAdapterName = 'cordova'|'default' | any;
+	type KeycloakAdapterName = 'cordova' | 'cordova-native' |'default' | any;
 	type KeycloakOnLoad = 'login-required'|'check-sso';
 	type KeycloakResponseMode = 'query'|'fragment';
 	type KeycloakResponseType = 'code'|'id_token token'|'code id_token token';
@@ -99,6 +99,12 @@ declare namespace Keycloak {
 		responseMode?: KeycloakResponseMode;
 
 		/**
+		 * Specifies a default uri to redirect to after login or logout.
+		 * This is currently supported for adapter 'cordova-native' and 'default'
+		 */
+		redirectUri?: string;
+
+		/**
 		 * Set the OpenID Connect flow.
 		 * @default standard
 		 */
@@ -161,6 +167,14 @@ declare namespace Keycloak {
                  * the user's profile to a new preferred locale.
 		 */
 		kcLocale?: string;
+
+		/**
+		 * Specifies arguments that are passed to the Cordova in-app-browser (if applicable).
+		 * Options 'hidden' and 'location' are not affected by these arguments.
+		 * All available options are defined at https://cordova.apache.org/docs/en/latest/reference/cordova-plugin-inappbrowser/.
+		 * Example of use: { zoom: "no", hardwareback: "yes" }
+		 */
+		cordovaOptions?: { [optionName: string]: string };
 	}
 
 	type KeycloakPromiseCallback<T> = (result: T) => void;
@@ -202,6 +216,24 @@ declare namespace Keycloak {
 		createdTimestamp?: number;
 	}
 
+	interface KeycloakTokenParsed {
+		exp?: number;
+		iat?: number;
+		nonce?: string;
+		sub?: string;
+		session_state?: string;
+		realm_access?: { roles: string[] };
+		resource_access?: string[];
+	}
+
+	interface KeycloakResourceAccess {
+		[key: string]: KeycloakRoles
+	}
+
+	interface KeycloakRoles {
+		roles: string[];
+	}
+
 	// export interface KeycloakUserInfo {}
 
 	/**
@@ -239,12 +271,12 @@ declare namespace Keycloak {
 		/**
 		 * The realm roles associated with the token.
 		 */
-		realmAccess?: { roles: string[] };
+		realmAccess?: KeycloakRoles;
 
 		/**
 		 * The resource roles associated with the token.
 		 */
-		resourceAccess?: string[];
+		resourceAccess?: KeycloakResourceAccess;
 
 		/**
 		 * The base64 encoded token that can be sent in the Authorization header in
@@ -255,15 +287,7 @@ declare namespace Keycloak {
 		/**
 		 * The parsed token as a JavaScript object.
 		 */
-		tokenParsed?: {
-			exp?: number;
-			iat?: number;
-			nonce?: string;
-			sub?: string;
-			session_state?: string;
-			realm_access?: { roles: string[] };
-			resource_access?: string[];
-		};
+		tokenParsed?: KeycloakTokenParsed;
 
 		/**
 		 * The base64 encoded refresh token that can be used to retrieve a new token.
@@ -273,7 +297,7 @@ declare namespace Keycloak {
 		/**
 		 * The parsed refresh token as a JavaScript object.
 		 */
-		refreshTokenParsed?: { nonce?: string };
+		refreshTokenParsed?: KeycloakTokenParsed;
 
 		/**
 		 * The base64 encoded ID token.
@@ -283,7 +307,7 @@ declare namespace Keycloak {
 		/**
 		 * The parsed id token as a JavaScript object.
 		 */
-		idTokenParsed?: { nonce?: string };
+		idTokenParsed?: KeycloakTokenParsed;
 
 		/**
 		 * The estimated time difference between the browser time and the Keycloak
