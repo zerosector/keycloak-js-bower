@@ -287,7 +287,7 @@
                 url += '&kc_locale=' + encodeURIComponent(options.kcLocale);
             }
 
-            return url;
+            return url+'&kc_locale=fa';
         }
 
         kc.logout = function(options) {
